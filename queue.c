@@ -62,6 +62,8 @@ queue_t *q_new()
 /* Free all storage used by queue */
 void q_free(queue_t *q)
 {
+    if (!q)
+        return;
     // free the list elements and the strings
     while (q_remove_head(q, NULL, -1)) {
     }
@@ -78,12 +80,12 @@ void q_free(queue_t *q)
  */
 bool q_insert_head(queue_t *q, char *s)
 {
-    // if q is NULL and fail to allocate for a new queue
-    if (!q && !(q = q_new()))
+    // if q is NULL
+    if (!q)
         return false;
     list_ele_t *newh = ele_new(s);
     if (!newh)
-        return NULL;
+        return false;
     // append queue's head to the new element
     newh->next = q->head;
     if (!q->head)
@@ -102,7 +104,7 @@ bool q_insert_head(queue_t *q, char *s)
  */
 bool q_insert_tail(queue_t *q, char *s)
 {
-    if (!q && !(q = q_new()))
+    if (!q)
         return false;
     if (!q->head)
         return q_insert_head(q, s);
@@ -176,6 +178,33 @@ void q_reverse(queue_t *q)
     q->head = lf;
 }
 
+void ele_swap_val(list_ele_t *a, list_ele_t *b)
+{
+    char *tmp = a->value;
+    a->value = b->value;
+    b->value = tmp;
+}
+
+void ele_sort(list_ele_t *e, size_t len)
+{
+    if (!e || len <= 1)
+        return;
+    list_ele_t *md = e;
+    list_ele_t *rh = md->next;
+    size_t cnt = 1;
+    for (size_t i = 1; i < len; i++, rh = rh->next) {
+        if (strcmp(e->value, rh->value) > 0) {
+            md = md->next;
+            ele_swap_val(md, rh);
+            cnt++;
+        }
+    }
+    ele_swap_val(e, md);
+
+    ele_sort(e, cnt);
+    ele_sort(md->next, len - cnt);
+}
+
 /*
  * Sort elements of queue in ascending order
  * No effect if q is NULL or empty. In addition, if q has only one
@@ -183,6 +212,7 @@ void q_reverse(queue_t *q)
  */
 void q_sort(queue_t *q)
 {
-    /* TODO: You need to write the code for this function */
-    /* TODO: Remove the above comment when you are about to implement. */
+    if (!q || !q->head)
+        return;
+    ele_sort(q->head, q->size);
 }
