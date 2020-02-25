@@ -1,12 +1,25 @@
 #include "queue.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "harness.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
+#define P 37
+
+unsigned int s_hash(const char *s)
+{
+    unsigned int ret = 0;
+    while (*s) {
+        ret = ret * P + *s;
+        s++;
+    }
+    return (ret & 0x7FFFFFFF);
+}
 
 list_ele_t *ele_new(const char *s)
 {
@@ -24,6 +37,7 @@ list_ele_t *ele_new(const char *s)
         }
         strncpy(e->value, s, sz);
         e->value[sz] = 0;
+        e->h = s_hash(s);
     } else {
         e->value = NULL;
     }
@@ -183,24 +197,34 @@ void ele_swap_val(list_ele_t *a, list_ele_t *b)
     char *tmp = a->value;
     a->value = b->value;
     b->value = tmp;
+    unsigned int th = a->h;
+    a->h = b->h;
+    b->h = th;
 }
 
 void ele_sort(list_ele_t *e, size_t len)
 {
     if (!e || len <= 1)
         return;
+    // randomly select a pivot
+    size_t step = (rand() % len);
+    list_ele_t *p = e;
+    while (step--)
+        p = p->next;
+    ele_swap_val(e, p);
+    // partition
     list_ele_t *md = e;
     list_ele_t *rh = md->next;
     size_t cnt = 1;
     for (size_t i = 1; i < len; i++, rh = rh->next) {
-        if (strcmp(e->value, rh->value) > 0) {
+        if (e->h != rh->h && strcmp(e->value, rh->value) > 0) {
             md = md->next;
             ele_swap_val(md, rh);
             cnt++;
         }
     }
     ele_swap_val(e, md);
-
+    // sort
     ele_sort(e, cnt);
     ele_sort(md->next, len - cnt);
 }
@@ -212,7 +236,7 @@ void ele_sort(list_ele_t *e, size_t len)
  */
 void q_sort(queue_t *q)
 {
-    if (!q || !q->head)
+    if (!q || !q->head || q->size == 1)
         return;
     ele_sort(q->head, q->size);
 }
