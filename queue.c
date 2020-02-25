@@ -9,17 +9,9 @@
 #include "harness.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
-#define P 37
-
-unsigned int s_hash(const char *s)
-{
-    unsigned int ret = 0;
-    while (*s) {
-        ret = ret * P + *s;
-        s++;
-    }
-    return (ret & 0x7FFFFFFF);
-}
+#define WALK(p) ((p) = (p)->next)
+#define APPEND_TO(a, b) ((a)->next = b, WALK(a), WALK(b))
+#define LESS(a, b) (strcmp(a->value, b->value) < 0)
 
 list_ele_t *ele_new(const char *s)
 {
@@ -37,7 +29,6 @@ list_ele_t *ele_new(const char *s)
         }
         strncpy(e->value, s, sz);
         e->value[sz] = 0;
-        e->h = s_hash(s);
     } else {
         e->value = NULL;
     }
@@ -146,7 +137,7 @@ bool q_remove_head(queue_t *q, char *sp, size_t bufsize)
         return false;
     // free queue's head
     list_ele_t *h = q->head;
-    q->head = q->head->next;
+    WALK(q->head);
     q->size--;
     ele_free(h, sp, bufsize);
     if (!q->size)
@@ -192,41 +183,57 @@ void q_reverse(queue_t *q)
     q->head = lf;
 }
 
-void ele_swap_val(list_ele_t *a, list_ele_t *b)
+// merge two sorted lists
+list_ele_t *merge(list_ele_t *a, list_ele_t *b)
 {
-    char *tmp = a->value;
-    a->value = b->value;
-    b->value = tmp;
-    unsigned int th = a->h;
-    a->h = b->h;
-    b->h = th;
+    // set head
+    list_ele_t *l = NULL, *r;
+    if (LESS(a, b)) {
+        l = a;
+        WALK(a);
+    } else {
+        l = b;
+        WALK(b);
+    }
+    r = l;
+    // link
+    while (a && b) {
+        if (LESS(a, b))
+            APPEND_TO(r, a);
+        else
+            APPEND_TO(r, b);
+    }
+    while (a)
+        APPEND_TO(r, a);
+    while (b)
+        APPEND_TO(r, b);
+    r->next = NULL;
+    return l;
 }
 
-void ele_sort(list_ele_t *e, size_t len)
+list_ele_t *ele_sort(list_ele_t *e, size_t len)
 {
-    if (!e || len <= 1)
-        return;
-    // randomly select a pivot
-    size_t step = (rand() % len);
-    list_ele_t *p = e;
-    while (step--)
-        p = p->next;
-    ele_swap_val(e, p);
-    // partition
-    list_ele_t *md = e;
-    list_ele_t *rh = md->next;
-    size_t cnt = 1;
-    for (size_t i = 1; i < len; i++, rh = rh->next) {
-        if (e->h != rh->h && strcmp(e->value, rh->value) > 0) {
-            md = md->next;
-            ele_swap_val(md, rh);
-            cnt++;
-        }
+    // no need process
+    if (!e || len == 0) {
+        return e;
     }
-    ele_swap_val(e, md);
+    // only one element
+    if (len == 1) {
+        e->next = NULL;
+        return e;
+    }
+    // compute size
+    size_t ls = len / 2;
+    size_t rs = len - ls;
+    // right head
+    list_ele_t *rh = e;
+    for (size_t i = 0; i < ls; i++)
+        WALK(rh);
     // sort
-    ele_sort(e, cnt);
-    ele_sort(md->next, len - cnt);
+    e = ele_sort(e, ls);
+    rh = ele_sort(rh, rs);
+    // merge
+    return merge(e, rh);
 }
 
 /*
@@ -238,5 +245,5 @@ void q_sort(queue_t *q)
 {
     if (!q || !q->head || q->size == 1)
         return;
-    ele_sort(q->head, q->size);
+    q->head = ele_sort(q->head, q->size);
 }
